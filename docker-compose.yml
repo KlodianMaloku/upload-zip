@@ -1,0 +1,82 @@
+version: '3.7'
+
+x-common-variables: &common-variables
+  # Service registry
+  QDRANT_HOST: 'http://qdrant:6333'
+  SONARQUUBE_HOST: 'http://sonarqube:9000'
+  POSTGRES_URL: 'postgresql://techdebt:techdebt@postgres:5432/techdebt'
+  REDIS_URL: 'redis://redis:6379'
+  RABBITMQ_URL: 'amqp://rabbitmq:5672'
+  KEYCLOAK_REALM: 'techdebtGpt'
+  KEYCLOAK_HOST: 'http://keycloak:8080'
+  KEYCLOAK_CLIENT_ID: 'dev-techdebtGpt'
+  THROTTLE_LIMIT_PER_MINUTE: 200
+
+services:
+
+  redis:
+    image: redis:6.0.9-alpine
+    hostname: redis
+    container_name: redis
+    ports:
+      - 6379:6379
+
+  rabbitmq:
+    image: rabbitmq:3.8.9-management-alpine
+    hostname: rabbitmq
+    container_name: rabbitmq
+    ports:
+      - 5672:5672
+      - 15672:15672
+
+  backend-api:
+    build: .
+    ports:
+      - "9000:9000"
+    environment:
+      <<: [*common-variables]
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    volumes:
+      - qdrant_storage:/qdrant_storage
+    ports:
+      - "6333:6333"
+
+  sonarqube:
+    image: sonarqube:community
+    hostname: sonarqube
+    container_name: sonarqube
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://postgres:5432/sonar
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: sonar
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+    ports:
+      - "9999:9000"
+
+  postgres:
+    image: postgres:13
+    hostname: postgresql
+    container_name: postgresql
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: sonar
+      POSTGRES_DB: sonar
+    ports:
+      - 5432:5432
+    volumes:
+      - postgres:/var/lib/postgresql
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+
+volumes:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:
+  postgres:
+  postgres_data:
+  qdrant_storage:
